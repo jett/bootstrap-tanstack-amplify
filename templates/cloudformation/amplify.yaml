@@ -1,0 +1,130 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Amplify Hosting setup for a TanStack Start SSR app. Creates the Amplify App
+  (Platform=WEB_COMPUTE), one Branch, an Amplify service role for CloudWatch
+  logging, and an SSR compute role that the app uses at runtime to access AWS
+  services. The compute role has no inline permissions by default — extend it
+  via ComputeRoleManagedPolicyArns or by editing this template once your app
+  needs DDB / S3 / etc.
+
+Parameters:
+  AppName:
+    Type: String
+    Description: Amplify app name (also used as a prefix for created IAM roles).
+    AllowedPattern: '^[a-zA-Z0-9][a-zA-Z0-9-]{0,62}$'
+
+  RepositoryUrl:
+    Type: String
+    Description: HTTPS URL of the Git repository (e.g. https://github.com/org/repo).
+    AllowedPattern: '^https://.+'
+
+  BranchName:
+    Type: String
+    Default: main
+    Description: Branch to deploy.
+
+  AccessToken:
+    Type: String
+    Default: ''
+    NoEcho: true
+    Description: >
+      GitHub fine-grained PAT with Contents:Read + Metadata:Read on the repo.
+      Leave empty if the AWS account has already authorized the AWS Amplify
+      GitHub App for this repository (recommended) — see docs/cloudformation-setup.md.
+
+  ComputeRoleManagedPolicyArns:
+    Type: CommaDelimitedList
+    Default: ''
+    Description: >
+      Optional managed policy ARNs to attach to the SSR compute role
+      (e.g. arn:aws:iam::aws:policy/AmazonDynamoDBReadOnlyAccess). Leave empty
+      to start with a permission-less role and add inline policies later.
+
+Conditions:
+  HasAccessToken: !Not [!Equals [!Ref AccessToken, '']]
+  HasManagedPolicies: !Not [!Equals [!Select [0, !Ref ComputeRoleManagedPolicyArns], '']]
+
+Resources:
+  AmplifyServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${AppName}-amplify-service-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: amplify.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: AmplifyHostingLogs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - logs:DescribeLogGroups
+                Resource: !Sub 'arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/amplify/*'
+
+  ComputeRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${AppName}-amplify-compute-role'
+      Description: SSR runtime role for the Amplify compute Lambda.
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: amplify.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns: !If
+        - HasManagedPolicies
+        - !Ref ComputeRoleManagedPolicyArns
+        - !Ref AWS::NoValue
+
+  AmplifyApp:
+    Type: AWS::Amplify::App
+    Properties:
+      Name: !Ref AppName
+      Repository: !Ref RepositoryUrl
+      Platform: WEB_COMPUTE
+      IAMServiceRole: !GetAtt AmplifyServiceRole.Arn
+      ComputeRoleArn: !GetAtt ComputeRole.Arn
+      AccessToken: !If [HasAccessToken, !Ref AccessToken, !Ref AWS::NoValue]
+
+  AmplifyBranch:
+    Type: AWS::Amplify::Branch
+    Properties:
+      AppId: !GetAtt AmplifyApp.AppId
+      BranchName: !Ref BranchName
+      Stage: PRODUCTION
+      EnableAutoBuild: true
+      EnablePullRequestPreview: false
+      ComputeRoleArn: !GetAtt ComputeRole.Arn
+
+Outputs:
+  AppId:
+    Description: Amplify app ID.
+    Value: !GetAtt AmplifyApp.AppId
+    Export:
+      Name: !Sub '${AWS::StackName}-AppId'
+
+  DefaultDomain:
+    Description: Default Amplify domain for the deployed branch.
+    Value: !Sub 'https://${BranchName}.${AmplifyApp.DefaultDomain}'
+
+  ComputeRoleArn:
+    Description: ARN of the SSR compute role. Attach inline policies here when the app needs AWS access.
+    Value: !GetAtt ComputeRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-ComputeRoleArn'
+
+  ComputeRoleName:
+    Description: Name of the SSR compute role (use with `aws iam put-role-policy`).
+    Value: !Ref ComputeRole
+    Export:
+      Name: !Sub '${AWS::StackName}-ComputeRoleName'

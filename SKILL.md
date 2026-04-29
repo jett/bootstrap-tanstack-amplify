@@ -63,20 +63,38 @@ src/features/<feature>/
   index.ts        — public barrel export
 ```
 
-### 5. Deploy to Amplify
+### 5. Provision Amplify infrastructure (CloudFormation)
+
+Use `templates/cloudformation/amplify.yaml` to create the Amplify App, the SSR compute role, and the service role for CloudWatch logs in one stack. This is the recommended path — it solves the "SSR app logs are off" gotcha at deploy time and gives the SSR Lambda an IAM identity ready to be extended when the app needs DDB / S3 / etc.
+
+```bash
+cd templates/cloudformation
+cp parameters.example.json parameters.json
+# edit parameters.json with AppName, RepositoryUrl, BranchName
+
+AWS_PROFILE=... AWS_REGION=us-east-1 ./deploy.sh <app-name>-stack
+```
+
+See `docs/cloudformation-setup.md` for GitHub auth options, role-extension recipes, and what's still manual.
+
+If the team prefers console-only setup, skip this step and follow `docs/amplify-deployment.md` instead — both paths land at the same end state.
+
+### 6. Deploy and verify
 
 Follow `docs/amplify-deployment.md` **in order**. This is the part with the most gotchas — skim all of it before starting. Key points:
 
 - Use Node 24 (matches recent `@tanstack/react-start` engine requirement and lockfile parity with modern local dev)
 - Nitro preset must be `aws-amplify` (explicit, typed as `preset: 'aws-amplify'` — not `config: { preset }` or `target`)
 - Amplify Console env vars hit the build shell but **not** the SSR Lambda runtime — the inject script bridges them by prepending `process.env` assignments to `.amplify-hosting/compute/default/server.js`
-- Enable "SSR app logs" in the Amplify Console or you won't see Lambda errors in CloudWatch
+- If you skipped the CFN stack, enable "SSR app logs" manually in the Amplify Console or you won't see Lambda errors in CloudWatch
 
 ## What's in this skill
 
 - `SKILL.md` — this file
 - `docs/architecture.md` — folder layout, layer rules, DDD conventions
 - `docs/amplify-deployment.md` — Amplify setup guide, ordered so each gotcha is resolved before it fires
+- `docs/cloudformation-setup.md` — IaC path: provision the Amplify App, service role, and SSR compute role via CFN
 - `docs/gotchas.md` — hard-won lessons, one-liners for future reference
 - `docs/bootstrap-checklist.md` — step-by-step for a fresh project
 - `templates/` — copy-paste-ready files
+- `templates/cloudformation/` — `amplify.yaml`, `deploy.sh`, `parameters.example.json`

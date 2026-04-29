@@ -10,13 +10,32 @@ A reusable bootstrap package for new web apps of this shape:
 
 ## How to use
 
-### Option A: drop it in a new repo as a Claude Code skill
+### Option A (recommended): install as a personal Claude Code skill
 
-1. Move this entire folder to `.claude/skills/bootstrap-tanstack-amplify/` in the new repo.
-2. Open Claude Code in the repo.
-3. Invoke the skill via `/bootstrap-tanstack-amplify` or by asking Claude to "bootstrap a new TanStack Start + Amplify project following the skill".
+This is a bootstrap skill — it creates new projects, so it should live outside any one project.
 
-### Option B: use the docs + templates manually
+```bash
+mkdir -p ~/.claude/skills
+cp -r /path/to/this/folder ~/.claude/skills/bootstrap-tanstack-amplify
+```
+
+Then in any Claude Code session:
+
+1. `mkdir new-app && cd new-app && git init`
+2. Open Claude Code, run `/bootstrap-tanstack-amplify` or ask Claude to "bootstrap a new TanStack Start + Amplify project following the skill".
+
+The skill is then available everywhere on your machine, not tied to any specific repo.
+
+### Option B: commit it inside a repo (team-shared)
+
+Use this when a team wants the skill versioned alongside a particular codebase — e.g., a monorepo that hosts multiple Amplify apps and wants every contributor to have the same scaffolding flow available.
+
+1. Move this folder to `.claude/skills/bootstrap-tanstack-amplify/` inside the repo and commit it.
+2. Anyone with Claude Code in that repo gets `/bootstrap-tanstack-amplify` automatically.
+
+Not ideal for the *initial* bootstrap of a brand-new project (the repo doesn't exist yet), but useful afterwards for standing up new sub-apps in the same shape.
+
+### Option C: use the docs + templates manually (no Claude Code)
 
 1. Read `docs/bootstrap-checklist.md` top to bottom.
 2. Copy files from `templates/` into the new project, adjusting env var names.
@@ -31,6 +50,7 @@ project-skill/
 ├── docs/
 │   ├── architecture.md              # DDD folder layout and layer rules
 │   ├── amplify-deployment.md        # Full Amplify setup, ordered by gotcha
+│   ├── cloudformation-setup.md      # IaC path: App + IAM roles via CFN
 │   ├── bootstrap-checklist.md       # Fresh-project steps
 │   └── gotchas.md                   # Lessons learned, one-liners
 └── templates/
@@ -38,6 +58,10 @@ project-skill/
     ├── vite.config.ts               # Vite + Nitro (aws-amplify preset)
     ├── postcss.config.cjs           # Mantine breakpoints + tailwind
     ├── CLAUDE.md                    # Project guidance for Claude Code
+    ├── cloudformation/
+    │   ├── amplify.yaml             # Amplify App + Branch + service role + SSR compute role
+    │   ├── deploy.sh                # `aws cloudformation deploy` wrapper
+    │   └── parameters.example.json  # Copy to parameters.json and fill in
     ├── scripts/
     │   └── inject-amplify-env.mjs   # Bakes env vars into SSR Lambda
     └── src/

@@ -1,0 +1,7 @@
+[
+  { "ParameterKey": "AppName", "ParameterValue": "my-app" },
+  { "ParameterKey": "RepositoryUrl", "ParameterValue": "https://github.com/my-org/my-repo" },
+  { "ParameterKey": "BranchName", "ParameterValue": "main" },
+  { "ParameterKey": "AccessToken", "ParameterValue": "" },
+  { "ParameterKey": "ComputeRoleManagedPolicyArns", "ParameterValue": "" }
+]
