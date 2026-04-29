@@ -1,0 +1,15 @@
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# In case anyone runs npm install inside templates/ to test
+node_modules/
+
+# Env files (templates/ should never contain a real .env)
+.env
+.env.local
+.env.*.local
